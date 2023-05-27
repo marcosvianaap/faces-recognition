@@ -1,11 +1,5 @@
 import cv2
 import numpy as np
-# from sklearn.datasets import fetch_lfw_people
-# from sklearn.decomposition import PCA
-# from sklearn.svm import SVC
-# from sklearn.model_selection import train_test_split
-# from sklearn.metrics import accuracy_score
-# import matplotlib.pyplot as plt
 
 # Carrega o classificador pré-treinado para detecção de faces
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
