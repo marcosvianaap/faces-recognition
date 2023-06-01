@@ -20,6 +20,6 @@ for (x, y, w, h) in faces:
     cv2.rectangle(image, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
 # Exibe a imagem com as faces detectadas
-cv2.imshow('Faces', image)
-cv2.waitKey(0)
+cv2.imshow('Recognition faces', image)
+cv2.waitKey(1)
 cv2.destroyAllWindows()
