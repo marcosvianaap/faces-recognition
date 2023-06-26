@@ -1,76 +1,103 @@
 import cv2
 import numpy as np
-from sklearn.datasets import fetch_lfw_people
+import face_recognition
+import os
 
-# Implementação do método da iteração de potência
-def power_iteration(A, num_iterations):
-    # Inicialização de um vetor aleatório
-    n = A.shape[0]
-    x = np.random.rand(n)
-    x /= np.linalg.norm(x)
+# def power_iteration(A, num_iterations):
+#     n = A.shape[0]
+#     x = np.random.rand(n)
+#     x /= np.linalg.norm(x)
 
-    for _ in range(num_iterations):
-        # Multiplicação da matriz pelo vetor
-        x = np.dot(A, x)
-        # Normalização do vetor
-        x /= np.linalg.norm(x)
+#     for _ in range(num_iterations):
+#         x = np.dot(A, x)
+#         x /= np.linalg.norm(x)
 
-    # Cálculo do autovalor
-    eigenvalue = np.dot(np.dot(A, x), x)
-    # Retorna o autovetor normalizado e o autovalor correspondente
-    return x, eigenvalue
+#     eigenvalue = np.dot(np.dot(A, x), x)
+#     return x, eigenvalue
 
-# Carrega os dados das faces do dataset 'LFW People'
-faces = fetch_lfw_people(min_faces_per_person=60)
-X = faces.data
-n_samples, n_features = X.shape
+# def calculate_characteristic_equations(A, num_iterations):
+#     eigenvalue, eigenvector = power_iteration(A, num_iterations)
+#     print("Equation 1: A * x = ", eigenvalue, " * x")
+#     print("Eigenvalue:", eigenvalue)
+#     print("Eigenvector:", eigenvector)
+    # print()
 
-# Calcula a média das faces
-mean_face = np.mean(X, axis=0)
+def findEncodings(images):
+    encodeList = []
+    # calculate_characteristic_equations(images)
 
-# Centraliza as faces
-X_centered = X - mean_face
+    for image in images:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        encoding = face_recognition.face_encodings(image)[0]
+        encodeList.append(encoding)
 
-# Calcula a matriz de covariância
-covariance_matrix = np.cov(X_centered.T)
+    return encodeList
 
-# Número de componentes principais desejados (eigenfaces)
-n_components = 10
+# def averageFaces(images):
+#     encodings = findEncodings(images)
+#     if len(encodings) == 0:
+#         return None
 
-# Lista para armazenar os autovetores (eigenfaces)
-eigenfaces = []
+#     average_face = np.mean(encodings, axis=0)
+#     return average_face
 
-# Realiza o método da iteração de potência para obter os eigenfaces
-for _ in range(n_components):
-    eigenvector, _ = power_iteration(covariance_matrix, num_iterations=100)
-    eigenfaces.append(eigenvector)
+path = 'training-pictures'
+images = []
+classNames = []
+myList = os.listdir(path)
+for cl in myList:
+    curImg = cv2.imread(f'{path}/{cl}')
+    images.append(curImg)
+    classNames.append(os.path.splitext(cl)[0])
 
-# Inicializa a webcam
-webcam = cv2.VideoCapture(0)
+encodeListKnown = findEncodings(images)
 
-# Carrega o classificador Haar Cascade para detecção de rostos
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+# average_face = averageFaces(images)
 
-while webcam.isOpened():
-    validacao, frame = webcam.read()
-    if not validacao:
+# if average_face is not None:
+#     # Reshape the average_face to match the face_recognition format
+#     average_face = np.reshape(average_face, (1, -1))
+
+#     # Convert the average_face encoding to an image for visualization
+#     average_face_image = face_recognition.face_encodings(average_face)[0]
+#     average_face_image = np.reshape(average_face_image, (128,))
+
+#     # Display the average face image
+#     cv2.imshow('Average Face', average_face_image)
+#     cv2.waitKey(0)
+# else:
+#     print("No faces found in the training images.")
+
+# cv2.destroyAllWindows()
+
+cap = cv2.VideoCapture(0)
+
+while True:
+    success, img = cap.read()
+
+    imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
+    imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
+
+    facesCurFrame = face_recognition.face_locations(imgS)
+    encodesCurFrame = face_recognition.face_encodings(imgS, facesCurFrame)
+
+    for encodeFace, faceLoc in zip(encodesCurFrame, facesCurFrame):
+        matches = face_recognition.compare_faces(encodeListKnown, encodeFace)
+        faceDis = face_recognition.face_distance(encodeListKnown, encodeFace)
+
+        matchIndex = np.argmin(faceDis)
+
+        if matches[matchIndex]:
+            name = classNames[matchIndex].upper()
+
+            y1, x2, y2, x1 = faceLoc
+            y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
+            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.rectangle(img, (x1, y2 - 35), (x2, y2), (0, 255, 0), cv2.FILLED)
+            cv2.putText(img, name, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255), 2)
+    #cap = cv2.VideoCapture('<nome_do_arquivo_de_video>')
+    cv2.imshow('Webcam', img)
+    if cv2.waitKey(1) == 27:
         break
-    
-    # Realiza a detecção de rostos na imagem
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.3, minNeighbors=5)
-    
-    # Desenha retângulos ao redor dos rostos detectados
-    for (x, y, w, h) in faces:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-    
-    # Exibe a imagem com as detecções
-    cv2.imshow("Rostos na sua webcam", frame)
-    
-    # Interrompe o loop se a tecla "Esc" for pressionada
-    if cv2.waitKey(5) == 27:
-        break
 
-# Libera a webcam e fecha as janelas
-webcam.release()
 cv2.destroyAllWindows()
